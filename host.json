@@ -4,21 +4,13 @@
     "enabled": false
   },
   "functionTimeout": "00:10:00",
-  "extensionBundle": {
-    "id": "Microsoft.Azure.Functions.ExtensionBundle",
-    "version": "[4.*, 5.0.0)"
-  },
   "extensions": {
-    "durableTask": {
-      "maxConcurrentActivityFunctions": 4,
-      "maxConcurrentOrchestratorFunctions": 4
-    },
     "queues": {
       "maxDequeueCount": 1
     },
     "durableTask": {
-      "maxConcurrentActivityFunctions": 4,
-      "maxConcurrentOrchestratorFunctions": 4
+      "maxConcurrentActivityFunctions": 1,
+      "maxConcurrentOrchestratorFunctions": 1
     }
   }
 }
