@@ -10,8 +10,8 @@ Function Invoke-ExecExtensionTest {
     [CmdletBinding()]
     param($Request, $TriggerMetadata)
 
-    $APIName = $TriggerMetadata.FunctionName
-    Write-LogMessage -user $request.headers.'x-ms-client-principal' -API $APINAME -message 'Accessed this API' -Sev 'Debug'
+    $APIName = $Request.Params.CIPPEndpoint
+    Write-LogMessage -headers $Request.Headers -API $APINAME -message 'Accessed this API' -Sev 'Debug'
     $Table = Get-CIPPTable -TableName Extensionsconfig
     $Configuration = ((Get-CIPPAzDataTableEntity @Table).config | ConvertFrom-Json)
     # Interact with query parameters or the body of the request.
@@ -62,7 +62,7 @@ Function Invoke-ExecExtensionTest {
                 }
             }
             'Hudu' {
-                Connect-HuduAPI -configuration $Configuration.Hudu
+                Connect-HuduAPI -configuration $Configuration
                 $Version = Get-HuduAppInfo
                 if ($Version.version) {
                     $Results = [pscustomobject]@{'Results' = ('Successfully Connected to Hudu, version: {0}' -f $Version.version) }
@@ -83,9 +83,13 @@ Function Invoke-ExecExtensionTest {
                 $Results = [pscustomobject]@{'Results' = 'Successfully Connected to HIBP' }
             }
             'GitHub' {
-                $GitHubResponse = Invoke-GitHubApiRequest -Configuration $Configuration.GitHub -Method 'GET' -Path 'user'
+                $GitHubResponse = Invoke-GitHubApiRequest -Method 'GET' -Path 'user' -ReturnHeaders
                 if ($GitHubResponse.login) {
-                    $Results = [pscustomobject]@{ 'Results' = "Successfully connected to GitHub user: $($GitHubResponse.login)" }
+                    if ($GitHubResponse.Headers.'x-oauth-scopes') {
+                        $Results = [pscustomobject]@{ 'Results' = "Successfully connected to GitHub user: $($GitHubResponse.login) with scopes: $($GitHubResponse.Headers.'x-oauth-scopes')" }
+                    } else {
+                        $Results = [pscustomobject]@{ 'Results' = "Successfully connected to GitHub user: $($GitHubResponse.login) using a Fine Grained PAT" }
+                    }
                 } else {
                     $Results = [pscustomobject]@{ 'Results' = 'Failed to connect to GitHub. Check your API credentials and try again.' }
                 }

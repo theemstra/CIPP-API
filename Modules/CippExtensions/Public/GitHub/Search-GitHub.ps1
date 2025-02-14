@@ -1,16 +1,28 @@
-function Search-GitHubRepository {
+function Search-GitHub {
     [CmdletBinding()]
     Param (
         [string[]]$Repository,
+        [string]$User,
+        [string]$Org,
         [string]$Path,
-        [string]$SearchTerm,
+        [string[]]$SearchTerm,
         [string]$Language,
+        [ValidateSet('code', 'commits', 'issues', 'users', 'repositories', 'topics', 'labels')]
         [string]$Type = 'code'
     )
-    $Table = Get-CIPPTable -TableName Extensionsconfig
-    $Configuration = ((Get-CIPPAzDataTableEntity @Table).config | ConvertFrom-Json).GitHub
 
     $QueryParts = [System.Collections.Generic.List[string]]::new()
+    if ($SearchTerm) {
+        $SearchTermParts = [System.Collections.Generic.List[string]]::new()
+        foreach ($Term in $SearchTerm) {
+            $SearchTermParts.Add("`"$Term`"")
+        }
+        if (($SearchTermParts | Measure-Object).Count -gt 1) {
+            $QueryParts.Add(($SearchTermParts -join ' OR '))
+        } else {
+            $QueryParts.Add($SearchTermParts[0])
+        }
+    }
     if ($Repository) {
         $RepoParts = [System.Collections.Generic.List[string]]::new()
         foreach ($Repo in $Repository) {
@@ -22,11 +34,14 @@ function Search-GitHubRepository {
             $QueryParts.Add($RepoParts[0])
         }
     }
+    if ($User) {
+        $QueryParts.Add("user:$User")
+    }
+    if ($Org) {
+        $QueryParts.Add("org:$Org")
+    }
     if ($Path) {
         $QueryParts.Add("path:$Path")
-    }
-    if ($SearchTerm) {
-        $QueryParts.Add("`"$SearchTerm`"")
     }
     if ($Language) {
         $QueryParts.Add("language:$Language")
@@ -34,5 +49,5 @@ function Search-GitHubRepository {
 
     $Query = $QueryParts -join ' '
     Write-Information "Query: $Query"
-    Invoke-GitHubApiRequest -Configuration $Configuration -Path "search/$($Type)?q=$($Query)" -Method GET
+    Invoke-GitHubApiRequest -Path "search/$($Type)?q=$($Query)" -Method GET
 }

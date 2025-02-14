@@ -33,7 +33,7 @@ function Invoke-ExecApiClient {
                 $ClientId = $Request.Body.ClientId.value ?? $Request.Body.ClientId
                 try {
                     $ApiConfig = @{
-                        ExecutingUser = $Request.Headers.'x-ms-client-principal'
+                        Headers = $Request.Headers
                     }
                     if ($ClientId) {
                         $ApiConfig.ClientId = $ClientId
@@ -43,7 +43,7 @@ function Invoke-ExecApiClient {
                         $ApiConfig.AppName = $Request.Body.AppName
                     }
                     $APIConfig = New-CIPPAPIConfig @ApiConfig
-                    Write-Host ($APIConfig | ConvertTo-Json)
+
                     $ClientId = $APIConfig.ApplicationID
                     $AddedText = $APIConfig.Results
                 } catch {
@@ -53,7 +53,13 @@ function Invoke-ExecApiClient {
             }
 
             if ($Request.Body.IpRange.value) {
-                $IpRange = @($Request.Body.IpRange.value)
+                $IpRange = [System.Collections.Generic.List[string]]::new()
+                $regexPattern = '^(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?:/\d{1,2})?|(?:[0-9A-Fa-f]{1,4}:){1,7}[0-9A-Fa-f]{1,4}(?:/\d{1,3})?)$'
+                foreach ($IP in @($Request.Body.IPRange.value)) {
+                    if ($IP -match $regexPattern) {
+                        $IpRange.Add($IP)
+                    }
+                }
             } else {
                 $IpRange = @()
             }
@@ -64,7 +70,7 @@ function Invoke-ExecApiClient {
                 $Client.Role = [string]$Request.Body.Role.value
                 $Client.IPRange = "$(@($IpRange) | ConvertTo-Json -Compress)"
                 $Client.Enabled = $Request.Body.Enabled ?? $false
-                Write-LogMessage -user $Request.Headers.'x-ms-client-principal' -API 'ExecApiClient' -message "Updated API client $($Request.Body.ClientId)" -Sev 'Info'
+                Write-LogMessage -headers $Request.Headers -API 'ExecApiClient' -message "Updated API client $($Request.Body.ClientId)" -Sev 'Info'
                 $Results = 'API client updated'
             } else {
                 $Client = @{
@@ -109,8 +115,10 @@ function Invoke-ExecApiClient {
             try {
                 Set-CippApiAuth -RGName $RGName -FunctionAppName $FunctionAppName -TenantId $TenantId -ClientIds $ClientIds
                 $Body = @{ Results = 'API clients saved to Azure' }
+                Write-LogMessage -headers $Request.Headers -API 'ExecApiClient' -message 'Saved API clients to Azure' -Sev 'Info'
             } catch {
                 $Body = @{ Results = 'Failed to save allowed API clients to Azure, ensure your function app has the appropriate rights to make changes to the Authentication settings.' }
+                Write-Information (Get-CippException -Exception $_ | ConvertTo-Json)
             }
         }
         'ResetSecret' {
@@ -121,7 +129,7 @@ function Invoke-ExecApiClient {
                     severity   = 'error'
                 }
             } else {
-                $ApiConfig = New-CIPPAPIConfig -ResetSecret -AppId $Request.Body.ClientId
+                $ApiConfig = New-CIPPAPIConfig -ResetSecret -AppId $Request.Body.ClientId -Headers $Request.Headers
 
                 if ($ApiConfig.ApplicationSecret) {
                     $Results = @{
@@ -143,22 +151,26 @@ function Invoke-ExecApiClient {
                 if ($Request.Body.ClientId) {
                     $ClientId = $Request.Body.ClientId.value ?? $Request.Body.ClientId
                     if ($Request.Body.RemoveAppReg -eq $true) {
-                        $Apps = New-GraphGetRequest -uri "https://graph.microsoft.com/v1.0/applications?`$filter=signInAudience eq 'AzureAdMyOrg' and web/redirectUris/any(x:x eq 'https://$($sitename).azurewebsites.net/.auth/login/aad/callback')&`$top=999&`$select=id,appId&`$count=true" -NoAuthCheck $true -asapp $true -ComplexFilter
-                        $Id = $Apps | Where-Object { $_.appId -eq $ClientId } | Select-Object -ExpandProperty id
-                        if ($Id) {
-                            New-GraphPOSTRequest -uri "https://graph.microsoft.com/v1.0/applications(appId='$ClientId')" -Method DELETE -Body '{}' -NoAuthCheck $true -asapp $true
+                        Write-Information "Deleting API Client: $ClientId from Entra"
+                        $App = New-GraphGetRequest -uri "https://graph.microsoft.com/v1.0/applications?`$filter=appId eq '$($ClientId)'&`$select=id,appId,web" -NoAuthCheck $true -asapp $true
+                        $Id = $App.id
+                        if ($Id -and $App.web.redirectUris -like "*$($env:WEBSITE_SITE_NAME)*") {
+                            New-GraphPOSTRequest -uri "https://graph.microsoft.com/v1.0/applications/$Id" -type DELETE -Body '{}' -NoAuthCheck $true -asapp $true
+                            Write-Information "Deleted App Registration for $ClientId"
+                        } else {
+                            Write-Information "App Registration for $ClientId not found or Redirect URI does not match"
                         }
                     }
-
-                    $Client = Get-CIPPAzDataTableEntity @Table -Filter "RowKey eq '$($ClientId)'" -Property RowKey, PartitionKey, ETag
-                    Remove-AzDataTableEntity @Table -Entity $Client
-                    Write-LogMessage -user $Request.Headers.'x-ms-client-principal' -API 'ExecApiClient' -message "Deleted API client $ClientId" -Sev 'Info'
+                    Write-Information "Deleting API Client: $ClientId from CIPP"
+                    $Client = Get-CIPPAzDataTableEntity @Table -Filter "RowKey eq '$($ClientId)'" -Property RowKey, PartitionKey
+                    Remove-AzDataTableEntity @Table -Entity $Client -Force
+                    Write-LogMessage -headers $Request.Headers -API 'ExecApiClient' -message "Deleted API client $ClientId" -Sev 'Info'
                     $Body = @{ Results = "API client $ClientId deleted" }
                 } else {
                     $Body = @{ Results = "API client $ClientId not found or not a valid CIPP-API application" }
                 }
             } catch {
-                Write-LogMessage -user $Request.Headers.'x-ms-client-principal' -API 'ExecApiClient' -message "Failed to remove app registration for $ClientId" -Sev 'Warning'
+                Write-LogMessage -headers $Request.Headers -API 'ExecApiClient' -message "Failed to remove app registration for $ClientId" -Sev 'Warning'
             }
         }
         default {
