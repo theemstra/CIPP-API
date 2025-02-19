@@ -10,9 +10,9 @@ Function Invoke-EditExConnector {
     [CmdletBinding()]
     param($Request, $TriggerMetadata)
 
-    $APIName = $TriggerMetadata.FunctionName
-    $ExecutingUser = $Request.headers.'x-ms-client-principal'
-    Write-LogMessage -user $ExecutingUser -API $APINAME -message 'Accessed this API' -Sev 'Debug'
+    $APIName = $Request.Params.CIPPEndpoint
+    $Headers = $Request.Headers
+    Write-LogMessage -Headers $Headers -API $APINAME -message 'Accessed this API' -Sev 'Debug'
     $TenantFilter = $Request.Query.tenantFilter ?? $Request.Body.tenantFilter
     try {
         $ConnectorState = $Request.Query.State ?? $Request.Body.State
@@ -25,11 +25,11 @@ Function Invoke-EditExConnector {
         }
         $null = New-ExoRequest -tenantid $TenantFilter -cmdlet "Set-$($Type)Connector" -cmdParams $params -UseSystemMailbox $true
         $Result = "Set Connector $($Guid) to $($ConnectorState)"
-        Write-LogMessage -user $ExecutingUser -API $APINAME -tenant $TenantFilter -message "Set Connector $($Guid) to $($ConnectorState)" -sev Info
+        Write-LogMessage -Headers $Headers -API $APINAME -tenant $TenantFilter -message "Set Connector $($Guid) to $($ConnectorState)" -sev Info
         $StatusCode = [HttpStatusCode]::OK
     } catch {
         $ErrorMessage = Get-CIPPException -Exception $_
-        Write-LogMessage -user $ExecutingUser -API $APINAME -tenant $TenantFilter -message "Failed setting Connector $($Guid) to $($ConnectorState). Error:$($ErrorMessage.NormalizedError)" -Sev Error -LogData $ErrorMessage
+        Write-LogMessage -Headers $Headers -API $APINAME -tenant $TenantFilter -message "Failed setting Connector $($Guid) to $($ConnectorState). Error:$($ErrorMessage.NormalizedError)" -Sev Error -LogData $ErrorMessage
         $Result = $ErrorMessage.NormalizedError
         $StatusCode = [HttpStatusCode]::Forbidden
     }
