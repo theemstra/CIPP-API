@@ -13,11 +13,12 @@ function Invoke-CIPPStandardQuarantineRequestAlert {
         CAT
             Defender Standards
         TAG
-            "lowimpact"
         ADDEDCOMPONENT
             {"type":"textField","name":"standards.QuarantineRequestAlert.NotifyUser","label":"E-mail to receive the alert"}
         IMPACT
             Low Impact
+        ADDEDDATE
+            2024-07-15
         POWERSHELLEQUIVALENT
             New-ProtectionAlert and Set-ProtectionAlert
         RECOMMENDEDBY

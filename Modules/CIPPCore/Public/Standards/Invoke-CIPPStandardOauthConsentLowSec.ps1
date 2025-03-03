@@ -13,10 +13,11 @@ function Invoke-CIPPStandardOauthConsentLowSec {
         CAT
             Entra (AAD) Standards
         TAG
-            "mediumimpact"
             "IntegratedApps"
         IMPACT
             Medium Impact
+        ADDEDDATE
+            2022-08-16
         POWERSHELLEQUIVALENT
             Update-MgPolicyAuthorizationPolicy
         RECOMMENDEDBY
