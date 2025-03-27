@@ -3,7 +3,7 @@ using namespace System.Net
 Function Invoke-GetVersion {
     <#
     .FUNCTIONALITY
-        Entrypoint
+        Entrypoint,AnyTenant
     .ROLE
         CIPP.AppSettings.Read
     #>
@@ -11,7 +11,8 @@ Function Invoke-GetVersion {
     param($Request, $TriggerMetadata)
 
     $APIName = $Request.Params.CIPPEndpoint
-    Write-LogMessage -headers $Request.Headers -API $APINAME -message 'Accessed this API' -Sev 'Debug'
+    $Headers = $Request.Headers
+    Write-LogMessage -headers $Headers -API $APIName -message 'Accessed this API' -Sev 'Debug'
 
     $CIPPVersion = $request.query.LocalVersion
 

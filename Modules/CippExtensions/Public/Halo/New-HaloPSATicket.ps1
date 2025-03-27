@@ -5,14 +5,16 @@ function New-HaloPSATicket {
         $description,
         $client
     )
-    #Get Halo PSA Token based on the config we have.
+    #Get HaloPSA Token based on the config we have.
     $Table = Get-CIPPTable -TableName Extensionsconfig
     $Configuration = ((Get-CIPPAzDataTableEntity @Table).config | ConvertFrom-Json).HaloPSA
     $TicketTable = Get-CIPPTable -TableName 'PSATickets'
     $token = Get-HaloToken -configuration $Configuration
+    # sha hash title
+    $TitleHash = Get-StringHash -String $title
 
     if ($Configuration.ConsolidateTickets) {
-        $ExistingTicket = Get-CIPPAzDataTableEntity @TicketTable -Filter "PartitionKey eq 'HaloPSA' and RowKey eq '$($client)-$($title)'"
+        $ExistingTicket = Get-CIPPAzDataTableEntity @TicketTable -Filter "PartitionKey eq 'HaloPSA' and RowKey eq '$($client)-$($TitleHash)'"
         if ($ExistingTicket) {
             Write-Information "Ticket already exists in HaloPSA: $($ExistingTicket.TicketID)"
 
@@ -83,7 +85,9 @@ function New-HaloPSATicket {
             if ($Configuration.ConsolidateTickets) {
                 $TicketObject = [PSCustomObject]@{
                     PartitionKey = 'HaloPSA'
-                    RowKey       = "$($client)-$($title)"
+                    RowKey       = "$($client)-$($TitleHash)"
+                    Title        = $title
+                    ClientId     = $client
                     TicketID     = $Ticket.id
                 }
                 Add-CIPPAzDataTableEntity @TicketTable -Entity $TicketObject -Force
