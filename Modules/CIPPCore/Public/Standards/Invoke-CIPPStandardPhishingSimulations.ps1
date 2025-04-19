@@ -16,7 +16,7 @@ function Invoke-CIPPStandardPhishingSimulations {
         ADDEDCOMPONENT
             {"type":"autoComplete","multiple":true,"creatable":true,"required":true,"label":"Phishing Simulation Domains","name":"standards.PhishingSimulations.Domains"}
             {"type":"autoComplete","multiple":true,"creatable":true,"required":true,"label":"Phishing Simulation Sender IP Ranges","name":"standards.PhishingSimulations.SenderIpRanges"}
-            {"type":"autoComplete","multiple":true,"creatable":true,"required":true,"label":"Phishing Simulation Urls","name":"standards.PhishingSimulations.PhishingSimUrls"}
+            {"type":"autoComplete","multiple":true,"creatable":true,"required":false,"label":"Phishing Simulation Urls","name":"standards.PhishingSimulations.PhishingSimUrls"}
         IMPACT
             Medium Impact
         ADDEDDATE
@@ -70,7 +70,7 @@ function Invoke-CIPPStandardPhishingSimulations {
         If ($StateIsCorrect -eq $true) {
             Write-LogMessage -API 'Standards' -Tenant $Tenant -message 'Advanced Phishing Simulations already correctly configured' -sev Info
         } Else {
-            # Remedidate incorrect Phishing Simulations Policy
+            # Remediate incorrect Phishing Simulations Policy
             If ($PolicyIsCorrect -eq $false) {
                 If ($PolicyState.Name -eq 'PhishSimOverridePolicy') {
                     Try {
@@ -89,7 +89,7 @@ function Invoke-CIPPStandardPhishingSimulations {
                 }
             }
 
-            # Remedidate incorrect Phishing Simulations Policy Rule
+            # Remediate incorrect Phishing Simulations Policy Rule
             If ($RuleIsCorrect -eq $false) {
                 If ($RuleState.Name -like "*PhishSimOverr*") {
                     $cmdParams = @{
@@ -121,7 +121,7 @@ function Invoke-CIPPStandardPhishingSimulations {
                 }
             }
 
-            # Remedidate incorrect Phishing Simulations URLs
+            # Remediate incorrect Phishing Simulations URLs
             If ($PhishingSimUrlsIsCorrect -eq $false) {
                 $cmdParams = @{
                     ListType = 'Url'
@@ -167,7 +167,11 @@ function Invoke-CIPPStandardPhishingSimulations {
         If ($StateIsCorrect -eq $true) {
             $FieldValue = $true
         } Else {
-            $FieldValue = $CurrentState ? $CurrentState : $false
+            $FieldValue = [PSCustomObject]@{
+                Domains = $RuleState.Domains
+                SenderIpRanges = $RuleState.SenderIpRanges
+                PhishingSimUrls = $SimUrlState.value
+            }
         }
         Set-CIPPStandardsCompareField -FieldName 'standards.PhishingSimulations' -FieldValue $FieldValue -Tenant $Tenant
     }

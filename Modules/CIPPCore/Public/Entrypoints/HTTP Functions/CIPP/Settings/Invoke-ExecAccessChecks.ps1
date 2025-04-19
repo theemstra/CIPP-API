@@ -11,7 +11,8 @@ Function Invoke-ExecAccessChecks {
     param($Request, $TriggerMetadata)
 
     $APIName = $Request.Params.CIPPEndpoint
-    Write-LogMessage -Headers $Request.Headers -API $APINAME -message 'Accessed this API' -Sev 'Debug'
+    $Headers = $Request.Headers
+    Write-LogMessage -headers $Headers -API $APIName -message 'Accessed this API' -Sev 'Debug'
 
     $Table = Get-CIPPTable -tablename 'AccessChecks'
     $LastRun = (Get-Date).ToUniversalTime()
@@ -24,7 +25,7 @@ Function Invoke-ExecAccessChecks {
             if ($Request.Query.SkipCache -ne 'true' -or $Request.Query.SkipCache -ne $true) {
                 try {
                     $Cache = Get-CIPPAzDataTableEntity @Table -Filter "RowKey eq 'AccessPermissions' and Timestamp and Timestamp ge datetime'$TimestampFilter'"
-                    $Results = $Cache.Data | ConvertFrom-Json
+                    $Results = $Cache.Data | ConvertFrom-Json -ErrorAction Stop
                 } catch {
                     $Results = $null
                 }
@@ -61,7 +62,7 @@ Function Invoke-ExecAccessChecks {
                             ExchangeTest      = ''
                         }
                         if ($TenantCheck) {
-                            $Data = @($TenantCheck.Data | ConvertFrom-Json)
+                            $Data = @($TenantCheck.Data | ConvertFrom-Json -ErrorAction Stop)
                             $TenantResult.GraphStatus = $Data.GraphStatus
                             $TenantResult.ExchangeStatus = $Data.ExchangeStatus
                             $TenantResult.GDAPRoles = $Data.GDAPRoles
@@ -84,7 +85,7 @@ Function Invoke-ExecAccessChecks {
                         $Results = @()
                     }
                 } catch {
-                    Write-Host $_.Exception.Message
+                    Write-Warning "Error running tenant access check - $($_.Exception.Message)"
                     $Results = @()
                 }
             }
@@ -104,7 +105,7 @@ Function Invoke-ExecAccessChecks {
             if (!$Request.Query.SkipCache -eq 'true' -or !$Request.Query.SkipCache -eq $true) {
                 try {
                     $Cache = Get-CIPPAzDataTableEntity @Table -Filter "RowKey eq 'GDAPRelationships' and Timestamp ge datetime'$TimestampFilter'"
-                    $Results = $Cache.Data | ConvertFrom-Json
+                    $Results = $Cache.Data | ConvertFrom-Json -ErrorAction Stop
                 } catch {
                     $Results = $null
                 }
