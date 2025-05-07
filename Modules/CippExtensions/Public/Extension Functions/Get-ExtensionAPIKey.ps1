@@ -11,7 +11,7 @@ function Get-ExtensionAPIKey {
     )
 
     $Var = "Ext_$Extension"
-    $APIKey = Get-Item -Path "ENV:$Var" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Value
+    $APIKey = Get-Item -Path "env:$Var" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Value
     if ($APIKey) {
         Write-Information "Using cached API Key for $Extension"
     } else {
@@ -23,10 +23,16 @@ function Get-ExtensionAPIKey {
             $keyvaultname = ($env:WEBSITE_DEPLOYMENT_ID -split '-')[0]
             $null = Connect-AzAccount -Identity
             $SubscriptionId = $env:WEBSITE_OWNER_NAME -split '\+' | Select-Object -First 1
-            $null = Set-AzContext -SubscriptionId $SubscriptionId
+            $Context = Get-AzContext
+            if ($Context.Subscription) {
+                if ($Context.Subscription.Id -ne $SubscriptionId) {
+                    Write-Information "Setting context to subscription $SubscriptionId"
+                    $null = Set-AzContext -SubscriptionId $SubscriptionId
+                }
+            }
             $APIKey = (Get-AzKeyVaultSecret -VaultName $keyvaultname -Name $Extension -AsPlainText)
         }
-        Set-Item -Path "ENV:$Var" -Value $APIKey -Force -ErrorAction SilentlyContinue
+        Set-Item -Path "env:$Var" -Value $APIKey -Force -ErrorAction SilentlyContinue
     }
     return $APIKey
 }
